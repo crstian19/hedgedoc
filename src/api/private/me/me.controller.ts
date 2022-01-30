@@ -23,7 +23,7 @@ import { SessionGuard } from '../../../identity/session.guard';
 import { ConsoleLoggerService } from '../../../logger/console-logger.service';
 import { MediaUploadDto } from '../../../media/media-upload.dto';
 import { MediaService } from '../../../media/media.service';
-import { UserInfoDto } from '../../../users/user-info.dto';
+import { UserLoginInfoDto } from '../../../users/user-info.dto';
 import { User } from '../../../users/user.entity';
 import { UsersService } from '../../../users/users.service';
 import {
@@ -32,6 +32,7 @@ import {
   unauthorizedDescription,
 } from '../../utils/descriptions';
 import { RequestUser } from '../../utils/request-user.decorator';
+import { SessionAuthProvider } from '../../utils/session-authprovider.decorator';
 
 @UseGuards(SessionGuard)
 @ApiTags('me')
@@ -44,10 +45,14 @@ export class MeController {
   ) {
     this.logger.setContext(MeController.name);
   }
+
   @Get()
   @ApiUnauthorizedResponse({ description: unauthorizedDescription })
-  getMe(@RequestUser() user: User): UserInfoDto {
-    return this.userService.toUserDto(user);
+  getMe(
+    @RequestUser() user: User,
+    @SessionAuthProvider() authProvider: string,
+  ): UserLoginInfoDto {
+    return this.userService.toUserLoginInfoDto(user, authProvider);
   }
 
   @Get('media')
