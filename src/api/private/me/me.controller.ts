@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiTags,
@@ -82,11 +83,20 @@ export class MeController {
   }
 
   @Post('profile')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        displayName: { type: 'string', nullable: false },
+      },
+      required: ['displayName'],
+    },
+  })
   @HttpCode(200)
   @ApiUnauthorizedResponse({ description: unauthorizedDescription })
   async updateDisplayName(
     @RequestUser() user: User,
-    @Body('name') newDisplayName: string,
+    @Body('displayName') newDisplayName: string,
   ): Promise<void> {
     await this.userService.changeDisplayName(user, newDisplayName);
   }
