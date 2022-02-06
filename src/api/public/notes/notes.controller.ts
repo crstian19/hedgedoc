@@ -24,6 +24,7 @@ import {
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiProduces,
   ApiSecurity,
@@ -49,6 +50,7 @@ import { NoteMediaDeletionDto } from '../../../notes/note.media-deletion.dto';
 import { NotesService } from '../../../notes/notes.service';
 import { Permissions } from '../../../permissions/permissions.decorator';
 import { Permission } from '../../../permissions/permissions.enum';
+import { PermissionsService } from '../../../permissions/permissions.service';
 import { RevisionMetadataDto } from '../../../revisions/revision-metadata.dto';
 import { RevisionDto } from '../../../revisions/revision.dto';
 import { RevisionsService } from '../../../revisions/revisions.service';
@@ -59,10 +61,10 @@ import {
   conflictDescription,
   forbiddenDescription,
   internalServerErrorDescription,
+  notFoundDescription,
   successfullyDeletedDescription,
   unauthorizedDescription,
 } from '../../utils/descriptions';
-import { FullApi } from '../../utils/fullapi-decorator';
 import { GetNoteInterceptor } from '../../utils/get-note.interceptor';
 import { MarkdownBody } from '../../utils/markdownbody-decorator';
 import { PermissionsGuard } from '../../utils/permissions.guard';
@@ -82,6 +84,7 @@ export class NotesController {
     private revisionsService: RevisionsService,
     private historyService: HistoryService,
     private mediaService: MediaService,
+    private permissionService: PermissionsService,
   ) {
     this.logger.setContext(NotesController.name);
   }
@@ -110,7 +113,7 @@ export class NotesController {
     description: 'Get information about the newly created note',
     type: NoteDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   async getNote(
     @RequestUser() user: User,
     @RequestNote() note: Note,
@@ -148,7 +151,6 @@ export class NotesController {
   @Delete(':noteIdOrAlias')
   @HttpCode(204)
   @ApiNoContentResponse({ description: successfullyDeletedDescription })
-  @FullApi
   @ApiInternalServerErrorResponse({
     description: internalServerErrorDescription,
   })
@@ -179,7 +181,6 @@ export class NotesController {
     description: 'The new, changed note',
     type: NoteDto,
   })
-  @FullApi
   async updateNote(
     @RequestUser() user: User,
     @RequestNote() note: Note,
@@ -199,7 +200,7 @@ export class NotesController {
   @ApiOkResponse({
     description: 'The raw markdown content of the note',
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   @Header('content-type', 'text/markdown')
   async getNoteContent(
     @RequestUser() user: User,
@@ -216,7 +217,7 @@ export class NotesController {
     description: 'The metadata of the note',
     type: NoteMetadataDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   async getNoteMetadata(
     @RequestUser() user: User,
     @RequestNote() note: Note,
@@ -232,14 +233,15 @@ export class NotesController {
     description: 'The updated permissions of the note',
     type: NotePermissionsDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
+  @ApiBadRequestResponse({ description: badRequestDescription })
   async updateNotePermissions(
     @RequestUser() user: User,
     @RequestNote() note: Note,
     @Body() updateDto: NotePermissionsUpdateDto,
   ): Promise<NotePermissionsDto> {
     return await this.noteService.toNotePermissionsDto(
-      await this.noteService.updateNotePermissions(note, updateDto),
+      await this.permissionService.updateNotePermissions(note, updateDto),
     );
   }
 
@@ -251,7 +253,6 @@ export class NotesController {
     description: 'Get the permissions for a note',
     type: NotePermissionsDto,
   })
-  @FullApi
   async getPermissions(
     @RequestUser() user: User,
     @RequestNote() note: Note,
@@ -267,29 +268,20 @@ export class NotesController {
     description: 'Set the permissions for a user on a note',
     type: NotePermissionsDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   async setUserPermission(
     @RequestUser() user: User,
     @RequestNote() note: Note,
     @Param('userName') username: string,
     @Body() canEdit: boolean,
   ): Promise<NotePermissionsDto> {
-    try {
-      const permissionUser = await this.userService.getUserByUsername(username);
-      const returnedNote = await this.noteService.setUserPermission(
-        note,
-        permissionUser,
-        canEdit,
-      );
-      return await this.noteService.toNotePermissionsDto(returnedNote);
-    } catch (e) {
-      if (e instanceof NotInDBError) {
-        throw new BadRequestException(
-          "Can't add user to permissions. User not known.",
-        );
-      }
-      throw e;
-    }
+    const permissionUser = await this.userService.getUserByUsername(username);
+    const returnedNote = await this.permissionService.setUserPermission(
+      note,
+      permissionUser,
+      canEdit,
+    );
+    return await this.noteService.toNotePermissionsDto(returnedNote);
   }
 
   @UseInterceptors(GetNoteInterceptor)
@@ -300,7 +292,7 @@ export class NotesController {
     description: 'Remove the permission for a user on a note',
     type: NotePermissionsDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   async removeUserPermission(
     @RequestUser() user: User,
     @RequestNote() note: Note,
@@ -308,7 +300,7 @@ export class NotesController {
   ): Promise<NotePermissionsDto> {
     try {
       const permissionUser = await this.userService.getUserByUsername(username);
-      const returnedNote = await this.noteService.removeUserPermission(
+      const returnedNote = await this.permissionService.removeUserPermission(
         note,
         permissionUser,
       );
@@ -331,29 +323,20 @@ export class NotesController {
     description: 'Set the permissions for a user on a note',
     type: NotePermissionsDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   async setGroupPermission(
     @RequestUser() user: User,
     @RequestNote() note: Note,
     @Param('groupName') groupName: string,
     @Body() canEdit: boolean,
   ): Promise<NotePermissionsDto> {
-    try {
-      const permissionGroup = await this.groupService.getGroupByName(groupName);
-      const returnedNote = await this.noteService.setGroupPermission(
-        note,
-        permissionGroup,
-        canEdit,
-      );
-      return await this.noteService.toNotePermissionsDto(returnedNote);
-    } catch (e) {
-      if (e instanceof NotInDBError) {
-        throw new BadRequestException(
-          "Can't add group to permissions. Group not known.",
-        );
-      }
-      throw e;
-    }
+    const permissionGroup = await this.groupService.getGroupByName(groupName);
+    const returnedNote = await this.permissionService.setGroupPermission(
+      note,
+      permissionGroup,
+      canEdit,
+    );
+    return await this.noteService.toNotePermissionsDto(returnedNote);
   }
 
   @UseInterceptors(GetNoteInterceptor)
@@ -364,27 +347,18 @@ export class NotesController {
     description: 'Remove the permission for a group on a note',
     type: NotePermissionsDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   async removeGroupPermission(
     @RequestUser() user: User,
     @RequestNote() note: Note,
     @Param('groupName') groupName: string,
   ): Promise<NotePermissionsDto> {
-    try {
-      const permissionGroup = await this.groupService.getGroupByName(groupName);
-      const returnedNote = await this.noteService.removeGroupPermission(
-        note,
-        permissionGroup,
-      );
-      return await this.noteService.toNotePermissionsDto(returnedNote);
-    } catch (e) {
-      if (e instanceof NotInDBError) {
-        throw new BadRequestException(
-          "Can't remove group from permissions. Group not known.",
-        );
-      }
-      throw e;
-    }
+    const permissionGroup = await this.groupService.getGroupByName(groupName);
+    const returnedNote = await this.permissionService.removeGroupPermission(
+      note,
+      permissionGroup,
+    );
+    return await this.noteService.toNotePermissionsDto(returnedNote);
   }
 
   @UseInterceptors(GetNoteInterceptor)
@@ -395,23 +369,16 @@ export class NotesController {
     description: 'Changes the owner of the note',
     type: NoteDto,
   })
-  @FullApi
+  @ApiNotFoundResponse({ description: notFoundDescription })
   async changeOwner(
     @RequestUser() user: User,
     @RequestNote() note: Note,
     @Body() newOwner: string,
   ): Promise<NoteDto> {
-    try {
-      const owner = await this.userService.getUserByUsername(newOwner);
-      return await this.noteService.toNoteDto(
-        await this.noteService.changeOwner(note, owner),
-      );
-    } catch (e) {
-      if (e instanceof NotInDBError) {
-        throw new BadRequestException("Can't set new owner. User not known.");
-      }
-      throw e;
-    }
+    const owner = await this.userService.getUserByUsername(newOwner);
+    return await this.noteService.toNoteDto(
+      await this.permissionService.changeOwner(note, owner),
+    );
   }
 
   @UseInterceptors(GetNoteInterceptor)
@@ -423,7 +390,6 @@ export class NotesController {
     isArray: true,
     type: RevisionMetadataDto,
   })
-  @FullApi
   async getNoteRevisions(
     @RequestUser() user: User,
     @RequestNote() note: Note,
@@ -444,7 +410,6 @@ export class NotesController {
     description: 'Revision of the note for the given id or alias',
     type: RevisionDto,
   })
-  @FullApi
   async getNoteRevision(
     @RequestUser() user: User,
     @RequestNote() note: Note,
