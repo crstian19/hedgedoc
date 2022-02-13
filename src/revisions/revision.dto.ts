@@ -4,20 +4,12 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDate, IsNumber, IsString, ValidateNested } from 'class-validator';
+import { IsString, ValidateNested } from 'class-validator';
 
 import { EditDto } from './edit.dto';
-import { Revision } from './revision.entity';
+import { RevisionMetadataDto } from './revision-metadata.dto';
 
-export class RevisionDto {
-  /**
-   * ID of this revision
-   * @example 13
-   */
-  @IsNumber()
-  @ApiProperty()
-  id: Revision['id'];
-
+export class RevisionDto extends RevisionMetadataDto {
   /**
    * Markdown content of the revision
    * @example "# I am a heading"
@@ -27,27 +19,11 @@ export class RevisionDto {
   content: string;
 
   /**
-   * Number of characters in this revision
-   * @example 142
-   */
-  @IsNumber()
-  @ApiProperty()
-  length: number;
-
-  /**
    * Patch from the preceding revision to this one
    */
   @IsString()
   @ApiProperty()
   patch: string;
-
-  /**
-   * Datestring of the time this revision was created
-   * @example "2020-12-01 12:23:34"
-   */
-  @IsDate()
-  @ApiProperty()
-  createdAt: Date;
 
   /**
    * All edit objects which are used in the revision.
