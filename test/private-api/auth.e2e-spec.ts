@@ -41,7 +41,7 @@ describe('Auth', () => {
   describe('POST /auth/local', () => {
     it('works', async () => {
       const registrationDto: RegisterDto = {
-        displayname: displayname,
+        displayName: displayname,
         password: password,
         username: username,
       };
@@ -67,7 +67,7 @@ describe('Auth', () => {
         const username2 = 'already_existing';
         await testSetup.userService.createUser(username2, displayname);
         const registrationDto: RegisterDto = {
-          displayname: displayname,
+          displayName: displayname,
           password: password,
           username: username2,
         };
@@ -80,7 +80,7 @@ describe('Auth', () => {
       it('when registration is disabled', async () => {
         testSetup.configService.get('authConfig').local.enableRegister = false;
         const registrationDto: RegisterDto = {
-          displayname: displayname,
+          displayName: displayname,
           password: password,
           username: username,
         };
